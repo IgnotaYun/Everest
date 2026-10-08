@@ -77,7 +77,10 @@ namespace Celeste.Mod {
                 string vanillaExe = Path.Combine(PathGame, "orig", "Celeste.exe");
                 if (File.Exists(vanillaExe)) {
                     using FileStream stream = File.OpenRead(vanillaExe);
-                    using PEReader peReader = new PEReader(stream);
+                    // PrefetchEntireImage makes PEReader read the image into memory instead of
+                    // memory-mapping the FileStream: file-backed mappings do not exist where the OS has
+                    // no file mmap (libnx).  Documented reader behaviour, identical on every platform.
+                    using PEReader peReader = new PEReader(stream, PEStreamOptions.PrefetchEntireImage);
                     MetadataReader metaReader = peReader.GetMetadataReader();
 
                     VanillaIsFNA = metaReader.AssemblyReferences.Any(handle => metaReader.GetString(metaReader.GetAssemblyReference(handle).Name) == "FNA");
