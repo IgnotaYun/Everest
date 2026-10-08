@@ -37,6 +37,24 @@ namespace Celeste.Mod {
             public static bool IsHeadless { get; internal set; }
 
             /// <summary>
+            /// Whether the environment (platform, ...) can launch external processes.  false on libnx,
+            /// which has no process creation API: the splash screen, the self-updater, game
+            /// restart/relaunch and "open in an external program" helpers are unavailable there and
+            /// each of them is skipped with a log instead of failing inside System.Diagnostics.Process.
+            /// </summary>
+            internal static bool SupportsExternalProcesses =>
+                MonoMod.Utils.PlatformDetection.OS != MonoMod.Utils.OSKind.Libnx;
+
+            /// <summary>
+            /// Whether the Discord Game SDK can be loaded.  It is a native library (and needs a live
+            /// Discord client plus network) that the libnx payload does not ship, so the target skips
+            /// the attempt instead of provoking a native-library miss and a detailed exception dump
+            /// during boot.  Desktop platforms keep it; the web port has no Discord support at all.
+            /// </summary>
+            internal static bool SupportsDiscordSDK =>
+                MonoMod.Utils.PlatformDetection.OS != MonoMod.Utils.OSKind.Libnx;
+
+            /// <summary>
             /// Is the game running using Mono - always false on .NET Core Everest.
             /// </summary>
             [Obsolete("`IsMono` is always false on Everest Core")]

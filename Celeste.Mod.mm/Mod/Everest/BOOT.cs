@@ -130,11 +130,23 @@ namespace Celeste.Mod {
                 if (AppDomain.CurrentDomain.GetData("EverestRestart") as bool? ?? false) {
                     // Restart the original process
                     // This is as fast as the old "fast restarts" were
-                    StartCelesteProcess();
+                    if (Everest.Flags.SupportsExternalProcesses) {
+                        StartCelesteProcess();
+                    } else {
+                        Logger.Log(LogLevel.Warn, "BOOT",
+                            $"Restart unsupported on {MonoMod.Utils.PlatformDetection.OS}: relaunching needs an external process; exit and start the game again");
+                    }
                     goto Exit;
                 } else if (Everest.RestartVanilla) {
                     // Start the vanilla process
-                    StartVanilla();
+                    // Conditional branch on purpose: StartVanilla builds Process types, so on a
+                    // platform without process launch it must not be reached at all.
+                    if (Everest.Flags.SupportsExternalProcesses) {
+                        StartVanilla();
+                    } else {
+                        Logger.Log(LogLevel.Warn, "BOOT",
+                            $"Starting vanilla unsupported on {MonoMod.Utils.PlatformDetection.OS}: it launches orig/Celeste.exe as an external process");
+                    }
                     goto Exit;
                 }
             } catch (Exception e) {
@@ -197,6 +209,16 @@ namespace Celeste.Mod {
 
                 string[] ldPath = Environment.GetEnvironmentVariable(envVar)?.Split(":") ?? Array.Empty<string>();
                 if (!ldPath.Any(path => !string.IsNullOrWhiteSpace(path) && Path.GetFullPath(path) == libPath)) {
+                    if (!Everest.Flags.SupportsExternalProcesses) {
+                        // No relaunch, but still export the path so later native loads in this process
+                        // can find the libraries: the platform entry point provides it in advance (the
+                        // libnx harness sets LD_LIBRARY_PATH before managed Main).
+                        Environment.SetEnvironmentVariable(envVar, $"{libPath}:{Environment.GetEnvironmentVariable(envVar)}");
+                        Logger.Log(LogLevel.Warn, "BOOT",
+                            $"Cannot restart with {envVar} on {MonoMod.Utils.PlatformDetection.OS}: no external process launch; set {envVar} to include {libPath} for this process instead");
+                        return;
+                    }
+
                     Environment.SetEnvironmentVariable(envVar, $"{libPath}:{Environment.GetEnvironmentVariable(envVar)}");
                     Console.WriteLine($"Restarting with {envVar}=\"{Environment.GetEnvironmentVariable(envVar)}\"...");
 
@@ -235,6 +257,12 @@ namespace Celeste.Mod {
         private static extern bool SetDllDirectory(string lpPathName);
 
         public static Process StartCelesteProcess(string gameDir = null, bool clearFNAEnv = true) {
+            if (!Everest.Flags.SupportsExternalProcesses) {
+                // Safety net: every caller is gated, and process creation simply does not exist here.
+                throw new PlatformNotSupportedException(
+                    $"Cannot launch an external process on {MonoMod.Utils.PlatformDetection.OS}");
+            }
+
             gameDir ??= AppContext.BaseDirectory;
 
             Process game = new Process();
@@ -265,6 +293,12 @@ namespace Celeste.Mod {
         }
 
         public static void StartVanilla() {
+            if (!Everest.Flags.SupportsExternalProcesses) {
+                Logger.Log(LogLevel.Warn, "BOOT",
+                    $"Starting vanilla unsupported on {MonoMod.Utils.PlatformDetection.OS}: it launches orig/Celeste.exe as an external process");
+                return;
+            }
+
             // Revert native library path to prevent accidentally messing with vanilla
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 SetDllDirectory(null);

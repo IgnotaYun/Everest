@@ -894,7 +894,13 @@ namespace Celeste.Mod {
                 CoreModule.Instance.SaveSettings();
             }
 
-            Events.Celeste.OnShutdown += static () => BOOT.StartCelesteProcess();
+            // The full restart relaunches the game as a new process on shutdown.
+            if (Flags.SupportsExternalProcesses) {
+                Events.Celeste.OnShutdown += static () => BOOT.StartCelesteProcess();
+            } else {
+                Logger.Log(LogLevel.Warn, "core",
+                    $"Restart unsupported on {MonoMod.Utils.PlatformDetection.OS}: the game will exit and has to be started again manually");
+            }
             scene.RunAfterRender = () => Engine.Instance.Exit();
             yield break;
         }

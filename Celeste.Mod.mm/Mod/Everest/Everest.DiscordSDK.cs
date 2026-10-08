@@ -51,6 +51,12 @@ namespace Celeste.Mod {
                     return Instance;
                 }
 
+                if (!Everest.Flags.SupportsDiscordSDK) {
+                    Logger.Verbose("discord-game-sdk",
+                        $"Skipping Discord Game SDK on {MonoMod.Utils.PlatformDetection.OS}: the native library is not part of the payload, like the web port which has no Discord support at all");
+                    return null;
+                }
+
                 DiscordSDK sdk = new DiscordSDK(Celeste.Instance);
                 if (sdk.DiscordInstance != null) {
                     Instance = sdk;

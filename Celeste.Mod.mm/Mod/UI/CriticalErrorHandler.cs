@@ -371,7 +371,16 @@ namespace Celeste.Mod.UI {
             // Create the options menu
             optMenu = new TextMenu() { AutoScroll = false };
 
-            optMenu.Add(new TextMenu.Button("Open log file folder") { Disabled = LogFileError != null }.Pressed(() => {
+            // Opening the log location hands the path to an external file manager, and "Restart Game"
+            // relaunches the game as a new process: both need process creation, which some platforms
+            // (libnx) do not have.  Disable them there instead of throwing from the button handlers.
+            bool canLaunchProcesses = Everest.Flags.SupportsExternalProcesses;
+            if (!canLaunchProcesses) {
+                Logger.Log(LogLevel.Warn, "CriticalErrorHandler",
+                    $"Open log folder / Restart Game unsupported on {MonoMod.Utils.PlatformDetection.OS}: they launch external processes");
+            }
+
+            optMenu.Add(new TextMenu.Button("Open log file folder") { Disabled = LogFileError != null || !canLaunchProcesses }.Pressed(() => {
                 string openProg =
                     RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "explorer.exe" :
                     RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "xdg-open" :
@@ -399,7 +408,7 @@ namespace Celeste.Mod.UI {
             optMenu.Add(new TextMenu.Button("Exit Game").Pressed(() => {
                 Scene.OnEndOfFrame += static () => Engine.Instance.Exit();
             }));
-            optMenu.Add(new TextMenu.Button("Restart Game").Pressed(() => {
+            optMenu.Add(new TextMenu.Button("Restart Game") { Disabled = !canLaunchProcesses }.Pressed(() => {
                 Everest.Events.Celeste.OnShutdown += static () => BOOT.StartCelesteProcess();
                 Scene.OnEndOfFrame += static () => Engine.Instance.Exit();
             }));

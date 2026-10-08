@@ -15,6 +15,15 @@ namespace Celeste.Mod {
         private static readonly object splashPipeLock = new();
         public static bool SplashRan { get; private set; }
         public static void RunSplash(string targetRenderer = "") {
+            // The splash screen runs as a separate helper process (it owns its own renderer and pipes
+            // progress back to the game).  Platforms without external process launch (libnx) have no
+            // way to host it, so the feature is explicitly unavailable there: SplashRan stays false and
+            // StopSplash already tolerates that.
+            if (!Everest.Flags.SupportsExternalProcesses) {
+                Logger.Log(LogLevel.Warn, "EverestSplash",
+                    $"Splash screen unsupported on {MonoMod.Utils.PlatformDetection.OS}: it runs as an external process; booting without it");
+                return;
+            }
 
             int currentPid = Environment.ProcessId;
 

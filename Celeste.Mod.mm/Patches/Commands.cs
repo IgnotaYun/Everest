@@ -290,6 +290,11 @@ namespace Celeste {
         private static void CmdOpenLog() {
             string pathLog = Everest.PathLog;
             if (File.Exists(pathLog)) {
+                if (!Everest.Flags.SupportsExternalProcesses) {
+                    Engine.Commands.Log($"{pathLog} (opening files in an external program is unsupported on {MonoMod.Utils.PlatformDetection.OS})");
+                    return;
+                }
+
                 ProcessStartInfo startInfo = new() {
                     FileName = pathLog,
                     UseShellExecute = true,

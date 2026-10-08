@@ -10,6 +10,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using MonoMod.Utils;
 
 namespace Celeste.Mod {
     /// <summary>
@@ -87,6 +88,18 @@ namespace Celeste.Mod {
         internal static ref CoreAutoSplitterInfo SplitterInfo => ref Unsafe.As<byte, CoreAutoSplitterInfo>(ref _SplitterInfoBuf.Span[0]);
 
         internal static void Init() {
+            // AutoSplitter is an IPC feature: it publishes split state through a named shared memory
+            // mapping that an external splitter process (LiveSplit / atomicsplitter) opens.  Platforms
+            // that cannot create file-backed/shared mappings and have no external splitter process
+            // (libnx) cannot host it, so the feature is explicitly unavailable there instead of
+            // throwing from the first MemoryMappedFile call.  Update()/Shutdown() already no-op while
+            // the feature is not initialized.
+            if (PlatformDetection.OS == OSKind.Libnx) {
+                Logger.Log(LogLevel.Warn, "AutoSplitter",
+                    $"Unsupported on {PlatformDetection.OS}: no shared-memory IPC and no external splitter process; AutoSplitter stays disabled");
+                return;
+            }
+
             Trace.Assert(!_IsInitialized);
 
             const int PAGE_SIZE = 4096;

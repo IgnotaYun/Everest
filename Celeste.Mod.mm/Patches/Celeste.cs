@@ -203,7 +203,12 @@ namespace Celeste {
             AppDomain.CurrentDomain.UnhandledException += UnhandledExceptionHandler;
 
             // Get the splash up and running asap
-            if (!Everest.Flags.IsHeadless && !args.Contains("--disable-splash") && File.Exists(Path.Combine(".", "EverestSplash", "EverestSplash.dll"))) {
+            // The external-process check is part of the call condition on purpose: RunSplash builds
+            // System.Diagnostics.Process types, and on a platform where only a stub/PNSE implementation
+            // exists the reference must not be reached at all - not even for the JIT of a method whose
+            // result would be discarded.  The NRO clrhost passes no arguments, so this gate (rather than
+            // --disable-splash) is what keeps libnx splash-free.
+            if (Everest.Flags.SupportsExternalProcesses && !Everest.Flags.IsHeadless && !args.Contains("--disable-splash") && File.Exists(Path.Combine(".", "EverestSplash", "EverestSplash.dll"))) {
                 string targetRenderer = "";
                 for (int i = 0; i < args.Length; i++) { // The splash will use the same renderer as fna
                     if (args[i] == "--graphics" && args.Length > i + 1) {

@@ -377,7 +377,7 @@ namespace Celeste.Mod {
                 CoreModule.Settings.CurrentBranch = version.Source.Name;
                 CoreModule.Instance.SaveSettings();
                 progress.Init<OuiHelper_Shutdown>(Dialog.Clean("updater_title"), new Task(() => {
-                    if (DoUpdate(progress, version, PathGame, true) == null)
+                    if (!Everest.Flags.SupportsExternalProcesses || DoUpdate(progress, version, PathGame, true) == null)
                         progress.SwitchGoto<OuiModOptions>().WaitForConfirmOnFinish = true;
                 }), 0);
             }
@@ -430,7 +430,10 @@ namespace Celeste.Mod {
                     }
 
                     // Install Everest onto the legacyRef install
-                    Process installerProc = DoUpdate(progress, latestNonCoreStable, legacyRefInstall, false);
+                    // DoUpdate builds Process types, so it is only reached where process launch exists.
+                    Process installerProc = Everest.Flags.SupportsExternalProcesses
+                        ? DoUpdate(progress, latestNonCoreStable, legacyRefInstall, false)
+                        : null;
                     if (installerProc == null) {
                         progress.WaitForConfirmOnFinish = true;
                         return;
@@ -469,6 +472,13 @@ namespace Celeste.Mod {
             }
 
             private static Process DoUpdate(OuiLoggedProgress progress, Entry version, string installTarget, bool isUpdate) {
+                if (!Everest.Flags.SupportsExternalProcesses) {
+                    // Installing an update means launching MiniInstaller as a separate process.
+                    Logger.Log(LogLevel.Warn, "updater",
+                        $"Self-update unsupported on {MonoMod.Utils.PlatformDetection.OS}: installing runs MiniInstaller as an external process");
+                    return null;
+                }
+
                 // Last line printed on error.
                 string errorHint = $"\n{Dialog.Clean("EVERESTUPDATER_ERRORHINT1")}\n{Dialog.Clean("EVERESTUPDATER_ERRORHINT2")}\n{Dialog.Clean("EVERESTUPDATER_ERRORHINT3")}";
 
