@@ -230,9 +230,23 @@ namespace Celeste.Mod.Helpers.LegacyMonoMod {
             IsValid = false;
         }
 
+        // MonoMod moved NextTrampoline off of the (now public) IDetour interface onto the
+        // internal IHook interface. Look it up on both so that the legacy layer works with
+        // both the old and the current MonoMod.
         private static readonly PropertyInfo IDetour_NextTrampoline
-            = typeof(Hook).Assembly.GetType("MonoMod.RuntimeDetour.IDetour").GetProperty("NextTrampoline", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
-            ?? throw new InvalidOperationException("Couldn't get IDetour.NextTrampoline property");
+            = FindNextTrampolineProperty()
+            ?? throw new InvalidOperationException("Couldn't get IHook/IDetour.NextTrampoline property");
+
+        private static PropertyInfo FindNextTrampolineProperty() {
+            Assembly asm = typeof(Hook).Assembly;
+            foreach (string typeName in new string[] { "MonoMod.RuntimeDetour.IHook", "MonoMod.RuntimeDetour.IDetour" }) {
+                PropertyInfo property = asm.GetType(typeName)
+                    ?.GetProperty("NextTrampoline", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                if (property != null)
+                    return property;
+            }
+            return null;
+        }
 
         private static readonly PropertyInfo IDetourTrampoline_TrampolineMethod
             = typeof(Hook).Assembly.GetType("MonoMod.RuntimeDetour.IDetourTrampoline").GetProperty("TrampolineMethod", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
