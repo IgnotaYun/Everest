@@ -168,7 +168,10 @@ namespace Celeste.Mod.UI {
             // Backup the log file
             try {
                 Directory.CreateDirectory(Path.GetDirectoryName(backupPath));
-                File.Copy(Everest.PathLog, backupPath);
+                if (Logger.copyActiveLog != null)
+                    Logger.copyActiveLog(backupPath);
+                else
+                    File.Copy(Everest.PathLog, backupPath);
 
                 // Add some additional info to the end
                 static string EvalSafe(Func<string> func) {
@@ -213,10 +216,17 @@ namespace Celeste.Mod.UI {
                 }
 
                 GCMemoryInfo memInfo = GC.GetGCMemoryInfo();
-                Process procSelf = Process.GetCurrentProcess();
+                Process procSelf = null;
+                if (Everest.Flags.SupportsExternalProcesses)
+                    procSelf = Process.GetCurrentProcess();
                 writer.WriteLine($"Managed Heap Size: {EvalSafe(() => $"{FormatByteCount(memInfo.HeapSizeBytes)} (committed: {FormatByteCount(memInfo.TotalCommittedBytes)})")}");
-                writer.WriteLine($"Total Memory Usage: {EvalSafe(() => $"private={FormatByteCount(procSelf.PrivateMemorySize64)} system={FormatByteCount(procSelf.PagedSystemMemorySize64 + procSelf.NonpagedSystemMemorySize64)} virtual={FormatByteCount(procSelf.VirtualMemorySize64)} physical={FormatByteCount(procSelf.WorkingSet64)} paged={FormatByteCount(procSelf.PagedMemorySize64)}")}");
-                writer.WriteLine($"Peak Memory Usage: {EvalSafe(() => $"virtual={FormatByteCount(procSelf.VirtualMemorySize64)} physical={FormatByteCount(procSelf.PeakWorkingSet64)} paged={FormatByteCount(procSelf.PeakPagedMemorySize64)}")}");
+                if (procSelf != null) {
+                    writer.WriteLine($"Total Memory Usage: {EvalSafe(() => $"private={FormatByteCount(procSelf.PrivateMemorySize64)} system={FormatByteCount(procSelf.PagedSystemMemorySize64 + procSelf.NonpagedSystemMemorySize64)} virtual={FormatByteCount(procSelf.VirtualMemorySize64)} physical={FormatByteCount(procSelf.WorkingSet64)} paged={FormatByteCount(procSelf.PagedMemorySize64)}")}");
+                    writer.WriteLine($"Peak Memory Usage: {EvalSafe(() => $"virtual={FormatByteCount(procSelf.PeakVirtualMemorySize64)} physical={FormatByteCount(procSelf.PeakWorkingSet64)} paged={FormatByteCount(procSelf.PeakPagedMemorySize64)}")}");
+                    procSelf.Dispose();
+                } else {
+                    writer.WriteLine("Process memory statistics unavailable on this platform.");
+                }
                 writer.WriteLine($"Available Memory: {EvalSafe(() => FormatByteCount(memInfo.TotalAvailableMemoryBytes))}");
                 writer.WriteLine();
 

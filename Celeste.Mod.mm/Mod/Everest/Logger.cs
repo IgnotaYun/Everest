@@ -17,6 +17,7 @@ namespace Celeste.Mod {
         // to avoid including color escape sequences in it.
         internal static TextWriter outWriter;
         internal static TextWriter logWriter;
+        internal static Action<string> copyActiveLog;
 
         // During the duration from startup until the core module is initialized, this value will be used as a fallback.
         // It's initialized from BOOT.cs

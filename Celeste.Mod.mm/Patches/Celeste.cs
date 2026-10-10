@@ -184,18 +184,38 @@ namespace Celeste {
 
             Everest.PathLog = logfile;
 
-            using (Stream fileStream = new FileStream(logfile, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete))
+            bool libnxLog = MonoMod.Utils.PlatformDetection.OS == MonoMod.Utils.OSKind.Libnx;
+            using (Stream fileStream = new FileStream(logfile, FileMode.OpenOrCreate, libnxLog ? FileAccess.ReadWrite : FileAccess.Write, FileShare.ReadWrite | FileShare.Delete))
             using (StreamWriter fileWriter = new StreamWriter(fileStream, Console.OutputEncoding))
-            using (LogWriter logWriter = new LogWriter(Console.Out, Console.Error, fileWriter)) {
+            using (LogWriter logWriter = new LogWriter(Console.Out, Console.Error, TextWriter.Synchronized(fileWriter))) {
                 Logger.outWriter = logWriter.STDOUT.Stream;
                 Logger.logWriter = logWriter.File;
+                // Horizon cannot open a second handle to a file already open for
+                // writing. Snapshot through the existing readable handle instead.
+                Logger.copyActiveLog = libnxLog ? destination => {
+                    lock (logWriter.File) {
+                        logWriter.File.Flush();
+                        long position = fileStream.Position;
+                        try {
+                            fileStream.Position = 0;
+                            using FileStream backup = new FileStream(destination, FileMode.CreateNew, FileAccess.Write);
+                            fileStream.CopyTo(backup);
+                        } finally {
+                            fileStream.Position = position;
+                        }
+                    }
+                } : null;
 
                 // Setup Windows VT support as early as possible, to avoid escape codes being printed
                 if (allocedConsole && Logger.earlyBootColorizedLogging && !Logger.TryEnableWindowsVTSupport()) {
                     Logger.Error("core", "Failed to enable Windows VT support!");
                 }
 
-                MainInner(args);
+                try {
+                    MainInner(args);
+                } finally {
+                    Logger.copyActiveLog = null;
+                }
             }
         }
 
