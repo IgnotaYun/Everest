@@ -127,7 +127,14 @@ namespace Celeste.Mod {
         }
 
         private static Task lastFlush;
+        [DllImport("libnx", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void startup_splash_message([MarshalAs(UnmanagedType.LPUTF8Str)] string message);
+
         private static void SendMessageToSplash(string message) {
+            if (MonoMod.Utils.PlatformDetection.OS == MonoMod.Utils.OSKind.Libnx) {
+                startup_splash_message(message);
+                return;
+            }
             lock (splashPipeLock) {
                 if (splashPipeServerStream == null)
                     return; // If the splash never ran, no-op
