@@ -56,11 +56,15 @@ namespace Celeste {
 
             bool fmodLiveUpdate = Settings.Instance.LaunchWithFMODLiveUpdate;
             Settings.Instance.LaunchWithFMODLiveUpdate |= CoreModule.Settings.LaunchWithFMODLiveUpdateInEverest;
-        
+
+            // Live Update needs the Live Update FMOD runtime (fmodL / fmodstudioL), which unsupported
+            // targets do not ship; a stale setting must therefore not request the init flag.
+            bool liveUpdate = Everest.Flags.SupportsFMODLiveUpdate && Settings.Instance.LaunchWithFMODLiveUpdate;
+
             // Original initialization code
             {
                 FMOD.Studio.INITFLAGS flags = FMOD.Studio.INITFLAGS.NORMAL;
-                if (Settings.Instance.LaunchWithFMODLiveUpdate)
+                if (liveUpdate)
                     flags = FMOD.Studio.INITFLAGS.LIVEUPDATE;
 
                 CheckFmod(FMOD.Studio.System.create(out system));

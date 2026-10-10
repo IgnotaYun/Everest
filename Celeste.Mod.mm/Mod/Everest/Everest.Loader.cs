@@ -211,22 +211,28 @@ namespace Celeste.Mod {
                 Logger.Verbose("loader", $"ALL MODS LOADED IN {watch.ElapsedMilliseconds}ms");
                 Logger.Info("loader", $"Loaded {Everest._Modules.Count} modules");
 
-                try {
-                    Watcher = new FileSystemWatcher {
-                        Path = PathMods,
-                        NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite
-                    };
+                if (!Everest.Flags.SupportsFileSystemWatchers) {
+                    // Mods on disk are still loaded above; only picking up new containers while the
+                    // game runs is impossible without watchers.
+                    Everest.Flags.LogFileSystemWatchersUnavailable("loader", $"Auto-loading new mods from {PathMods}");
+                } else {
+                    try {
+                        Watcher = new FileSystemWatcher {
+                            Path = PathMods,
+                            NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite
+                        };
 
-                    Watcher.Created += LoadAutoUpdated;
-                    Watcher.Error += WatcherError;
+                        Watcher.Created += LoadAutoUpdated;
+                        Watcher.Error += WatcherError;
 
-                    Watcher.EnableRaisingEvents = true;
-                    AutoLoadNewMods = true;
-                } catch (Exception e) {
-                    Logger.Warn("loader", $"Failed watching folder: {PathMods}");
-                    Logger.LogDetailed(e);
-                    Watcher?.Dispose();
-                    Watcher = null;
+                        Watcher.EnableRaisingEvents = true;
+                        AutoLoadNewMods = true;
+                    } catch (Exception e) {
+                        Logger.Warn("loader", $"Failed watching folder: {PathMods}");
+                        Logger.LogDetailed(e);
+                        Watcher?.Dispose();
+                        Watcher = null;
+                    }
                 }
             }
 

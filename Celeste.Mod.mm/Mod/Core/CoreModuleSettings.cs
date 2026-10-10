@@ -84,11 +84,13 @@ namespace Celeste.Mod.Core {
             }
         }
 
+        // The menu entry is built by CreateLaunchWithFMODLiveUpdateEntry (relaunch note, not in game).
         [YamlIgnore]
-        [SettingNeedsRelaunch]
-        [SettingInGame(false)]
         public VanillaTristate LaunchWithFMODLiveUpdate {
             get {
+                if (!Everest.Flags.SupportsFMODLiveUpdate)
+                    return VanillaTristate.Never;
+
                 return
                     Settings.Instance.LaunchWithFMODLiveUpdate ? VanillaTristate.Always :
                     LaunchWithFMODLiveUpdateInEverest ? VanillaTristate.Everest :
@@ -115,8 +117,14 @@ namespace Celeste.Mod.Core {
             }
         }
 
+        // Stale "Everest live update" settings must not survive on a target without the Live Update
+        // runtime: the getter refuses them, so the next SaveSettings writes them back as false.
+        private bool _LaunchWithFMODLiveUpdateInEverest;
         [SettingIgnore]
-        public bool LaunchWithFMODLiveUpdateInEverest { get; set; }
+        public bool LaunchWithFMODLiveUpdateInEverest {
+            get => Everest.Flags.SupportsFMODLiveUpdate && _LaunchWithFMODLiveUpdateInEverest;
+            set => _LaunchWithFMODLiveUpdateInEverest = value;
+        }
 
         [SettingNeedsRelaunch]
         [SettingInGame(false)]
@@ -244,11 +252,14 @@ namespace Celeste.Mod.Core {
 
         public Everest.CompatMode CompatibilityMode { get; set; } = Everest.CompatMode.None; // TODO Better default logic
 
-        [SettingNeedsRelaunch]
-        [SettingName("MODOPTIONS_COREMODULE_D3D11EXCLUSIVEFULLSCREEN")]
-        [SettingSubText("MODOPTIONS_COREMODULE_D3D11EXCLUSIVEFULLSCREEN_DESC")]
-        [SettingInGame(false)]
-        public bool D3D11UseExclusiveFullscreen { get; set; }
+        // The menu entry is built by CreateD3D11UseExclusiveFullscreenEntry (relaunch note, description,
+        // not in game).  A stale "true" from a desktop install must not re-enable the switch on a target
+        // whose renderer has no exclusive fullscreen: the getter refuses it, so saving drops it.
+        private bool _D3D11UseExclusiveFullscreen;
+        public bool D3D11UseExclusiveFullscreen {
+            get => Everest.Flags.SupportsExclusiveFullscreen && _D3D11UseExclusiveFullscreen;
+            set => _D3D11UseExclusiveFullscreen = value;
+        }
 
         [SettingInGame(false)]
         public bool UseKeyboardForTextInput { get; set; } = true;
@@ -289,7 +300,14 @@ namespace Celeste.Mod.Core {
         [SettingSubText("MODOPTIONS_COREMODULE_USEAPIMIRROR_DESC")]
         public bool UseAPIMirror { get; set; } = false;
 
-        public bool DiscordRichPresence { get; set; } = true;
+        // The menu entry is built by CreateDiscordRichPresenceEntry, which hides the whole section on
+        // targets without the Discord Game SDK.  The getter refuses a stale "true" there, so neither
+        // load nor save can create a Discord instance.
+        private bool _DiscordRichPresence = true;
+        public bool DiscordRichPresence {
+            get => Everest.Flags.SupportsDiscordSDK && _DiscordRichPresence;
+            set => _DiscordRichPresence = value;
+        }
 
         [SettingIgnore]
         public bool DiscordShowIcon { get; set; } = true;
@@ -594,7 +612,50 @@ namespace Celeste.Mod.Core {
             compatSlider.OnValueChange += val => warningText.FadeVisible = IsCompatible((Everest.CompatMode) val);
         }
 
+        /// <summary>
+        /// Builds the "Use Exclusive Fullscreen" entry.  It is a D3D11 renderer knob, so it is not
+        /// offered on targets whose renderer has no exclusive fullscreen mode.
+        /// </summary>
+        public void CreateD3D11UseExclusiveFullscreenEntry(TextMenu menu, bool inGame) {
+            if (inGame || !Everest.Flags.SupportsExclusiveFullscreen)
+                return;
+
+            TextMenu.Item item = new TextMenu.OnOff(
+                Dialog.Clean("MODOPTIONS_COREMODULE_D3D11EXCLUSIVEFULLSCREEN"),
+                D3D11UseExclusiveFullscreen
+            ).Change(value => D3D11UseExclusiveFullscreen = value);
+
+            menu.Add(item);
+            // Same order the attribute-driven generator would use: description, then the relaunch note.
+            item.AddDescription((patch_TextMenu) menu, Dialog.Clean("MODOPTIONS_COREMODULE_D3D11EXCLUSIVEFULLSCREEN_DESC"));
+            item.NeedsRelaunch((patch_TextMenu) menu);
+        }
+
+        /// <summary>
+        /// Builds the "Launch w/ FMOD Live Update" entry.  Live Update needs the Live Update FMOD
+        /// runtime and a connection to an FMOD Studio editor, so it is not offered on targets that
+        /// ship the release runtime only.
+        /// </summary>
+        public void CreateLaunchWithFMODLiveUpdateEntry(TextMenu menu, bool inGame) {
+            if (inGame || !Everest.Flags.SupportsFMODLiveUpdate)
+                return;
+
+            TextMenu.Item item = new TextMenu.Slider(
+                Dialog.Clean("MODOPTIONS_COREMODULE_LAUNCHWITHFMODLIVEUPDATE"),
+                i => Dialog.Clean($"MODOPTIONS_VANILLATRISTATE_{(VanillaTristate) i}"),
+                0,
+                Enum.GetValues(typeof(VanillaTristate)).Length - 1,
+                (int) LaunchWithFMODLiveUpdate
+            ).Change(value => LaunchWithFMODLiveUpdate = (VanillaTristate) value);
+
+            menu.Add(item);
+            item.NeedsRelaunch((patch_TextMenu) menu);
+        }
+
         public void CreateDiscordRichPresenceEntry(TextMenu menu, bool inGame) {
+            if (!Everest.Flags.SupportsDiscordSDK)
+                return; // No Discord Game SDK on this target: hide the whole section instead of failing.
+
             Session session = (Engine.Scene as Level)?.Session;
 
             TextMenu.Option<bool> showSide = new TextMenu.OnOff(Dialog.Clean("modoptions_coremodule_discordshowside"), DiscordShowSide)

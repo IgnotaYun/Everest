@@ -34,6 +34,12 @@ namespace Celeste.Mod {
             };
 
             internal static void LoadRichPresenceIcons() {
+                if (!Everest.Flags.SupportsDiscordSDK) {
+                    Logger.Verbose("discord-game-sdk",
+                        $"Skipping Discord rich presence icon list on {MonoMod.Utils.PlatformDetection.OS}: Discord Rich Presence is unavailable here");
+                    return;
+                }
+
                 new Task(() => {
                     JArray list;
                     using (HttpClient hc = new CompressedHttpClient())

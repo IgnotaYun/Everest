@@ -139,6 +139,7 @@ namespace Celeste.Mod.UI {
                 // Modders / Mappers
                 case 3: {
                         Item fmod;
+                        Item autoUpdate;
                         patch_TextMenu menu = new patch_TextMenu() {
                             new patch_TextMenu.patch_SubHeader(Dialog.Clean("OOBE_SETTINGS_CREATE")),
                             new patch_TextMenu.patch_SubHeader(""),
@@ -155,22 +156,12 @@ namespace Celeste.Mod.UI {
                                 value => CoreModule.Settings.DebugMode = (CoreModuleSettings.VanillaTristate) value
                             ),
 
-                            (fmod = new TextMenu.Slider(
-                                Dialog.Clean("MODOPTIONS_COREMODULE_LAUNCHWITHFMODLIVEUPDATE"),
-                                i => Dialog.Clean($"MODOPTIONS_VANILLATRISTATE_{(CoreModuleSettings.VanillaTristate) i}"),
-                                0,
-                                Enum.GetValues(typeof(CoreModuleSettings.VanillaTristate)).Length - 1,
-                                (int) CoreModule.Settings.LaunchWithFMODLiveUpdate
-                            ).Change(
-                                value => CoreModule.Settings.LaunchWithFMODLiveUpdate = (CoreModuleSettings.VanillaTristate) value
-                            )),
-
-                            new OnOff(
+                            (autoUpdate = new OnOff(
                                 Dialog.Clean("MODOPTIONS_COREMODULE_AUTOUPDATEMODSONSTARTUP"),
                                 CoreModule.Settings.AutoUpdateModsOnStartup
                             ).Change(
                                 value => CoreModule.Settings.AutoUpdateModsOnStartup = value
-                            ),
+                            )),
 
                             new OnOff(
                                 Dialog.Clean("MODOPTIONS_COREMODULE_SHOWEVERESTTITLESCREEN"),
@@ -190,7 +181,23 @@ namespace Celeste.Mod.UI {
                             new Button(Dialog.Clean("OOBE_SETTINGS_OK")).Pressed(Exit)
                         };
 
-                        fmod.NeedsRelaunch(menu);
+                        // FMOD Live Update needs the Live Update FMOD runtime, which unsupported targets
+                        // do not ship; the entry is not offered there at all.
+                        if (Everest.Flags.SupportsFMODLiveUpdate) {
+                            fmod = new TextMenu.Slider(
+                                Dialog.Clean("MODOPTIONS_COREMODULE_LAUNCHWITHFMODLIVEUPDATE"),
+                                i => Dialog.Clean($"MODOPTIONS_VANILLATRISTATE_{(CoreModuleSettings.VanillaTristate) i}"),
+                                0,
+                                Enum.GetValues(typeof(CoreModuleSettings.VanillaTristate)).Length - 1,
+                                (int) CoreModule.Settings.LaunchWithFMODLiveUpdate
+                            ).Change(
+                                value => CoreModule.Settings.LaunchWithFMODLiveUpdate = (CoreModuleSettings.VanillaTristate) value
+                            );
+
+                            menu.Insert(menu.Items.IndexOf(autoUpdate), fmod);
+                            fmod.NeedsRelaunch(menu);
+                        }
+
                         return menu;
                     }
 

@@ -93,7 +93,11 @@ namespace Celeste.Mod {
                                 Everest.CompatibilityMode = Enum.Parse<Everest.CompatMode>((string) val);
                                 Console.WriteLine($"Loaded compatibility mode setting: {Everest.CompatibilityMode}");
                             }
-                            if (settings.TryGetValue(nameof(CoreModuleSettings.D3D11UseExclusiveFullscreen), out val))
+                            // The setting is read here, before CoreModuleSettings is loaded, so a stale
+                            // value from a desktop install is filtered by the capability rather than by
+                            // the property getter.
+                            if (Everest.Flags.SupportsExclusiveFullscreen &&
+                                settings.TryGetValue(nameof(CoreModuleSettings.D3D11UseExclusiveFullscreen), out val))
                                 useExclusiveFullscreen = bool.Parse((string) val);
                             if (settings.TryGetValue(nameof(CoreModuleSettings.ColorizedLogging), out val))
                                 coloredLogging = bool.Parse((string) val);

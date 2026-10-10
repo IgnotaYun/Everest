@@ -451,6 +451,12 @@ namespace Celeste.Mod {
         }
 
         private void RegisterCodeReloadWatcher(string asmDir) {
+            if (!Everest.Flags.SupportsFileSystemWatchers) {
+                // Code reload stays a manual action (reload the mod); watching for changes is impossible.
+                Everest.Flags.LogFileSystemWatchersUnavailable("modasmctx", $"Reloading mod code from {asmDir}");
+                return;
+            }
+
             // Check if there already is a watcher for the directory
             if (_AssemblyReloadWatchers.ContainsKey(asmDir))
                 return;

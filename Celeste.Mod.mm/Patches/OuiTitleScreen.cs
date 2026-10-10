@@ -44,12 +44,16 @@ namespace Celeste {
         public extern void orig_ctor();
         [MonoModConstructor]
         public void ctor() {
-            bool fmodLiveUpdate = Settings.Instance.LaunchWithFMODLiveUpdate;
-            Settings.Instance.LaunchWithFMODLiveUpdate |= CoreModule.Settings.LaunchWithFMODLiveUpdateInEverest;
+            if (Everest.Flags.SupportsFMODLiveUpdate) {
+                bool fmodLiveUpdate = Settings.Instance.LaunchWithFMODLiveUpdate;
+                Settings.Instance.LaunchWithFMODLiveUpdate |= CoreModule.Settings.LaunchWithFMODLiveUpdateInEverest;
 
-            orig_ctor();
+                orig_ctor();
 
-            Settings.Instance.LaunchWithFMODLiveUpdate = fmodLiveUpdate;
+                Settings.Instance.LaunchWithFMODLiveUpdate = fmodLiveUpdate;
+            } else {
+                orig_ctor();
+            }
 
             vanillaLogo = logo;
             vanillaTitle = title;
@@ -65,7 +69,10 @@ namespace Celeste {
             for (int i = everestTitle.Height - 4; i > 0; i -= 4)
                 everestReflections.Add(everestTitle.GetSubtexture(0, i, everestTitle.Width, 4, null));
 
-            arrowToVanilla = GFX.Gui["dotarrow"];
+            // Restarting into vanilla launches the vanilla executable as an external process, which
+            // this platform cannot do (and it has no separate vanilla install to launch), so the
+            // title screen offers neither the hold-right gesture nor its arrow hint.
+            arrowToVanilla = Everest.Flags.SupportsExternalProcesses ? GFX.Gui["dotarrow"] : null;
 
             version += string.Format("\nEverest v.{0}-{1}", Everest.Version, Everest.VersionTag);
 
@@ -114,7 +121,7 @@ namespace Celeste {
                 Add(tween);
             }
 
-            if (alpha >= 1f && Selected && Input.MenuRight && arrowToVanilla != null) {
+            if (Everest.Flags.SupportsExternalProcesses && alpha >= 1f && Selected && Input.MenuRight && arrowToVanilla != null) {
                 switchingToVanillaBack = Math.Max(0f, switchingToVanillaBack - Engine.DeltaTime * 8f);
                 switchingToVanilla += Engine.DeltaTime;
 
@@ -163,7 +170,7 @@ namespace Celeste {
             alpha = alphaPrev;
             textY = textYPrev;
 
-            if (switchAlpha > 0f) {
+            if (switchAlpha > 0f && Everest.Flags.SupportsExternalProcesses) {
                 Draw.Rect(0f, 0f, 1920f, 1080f, Color.Black * switchAlpha);
                 float offs = 40f * (1f - switchAlpha);
 

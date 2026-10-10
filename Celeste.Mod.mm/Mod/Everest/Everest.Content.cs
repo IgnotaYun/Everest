@@ -166,6 +166,12 @@ namespace Celeste.Mod {
         public FileSystemModContent(string path) {
             Path = path;
 
+            if (!Everest.Flags.SupportsFileSystemWatchers) {
+                // The mod is still crawled and loaded; only live change detection is impossible.
+                Everest.Flags.LogFileSystemWatchersUnavailable("content", $"Mod hot-reload for {path}");
+                return;
+            }
+
             try {
                 watcher = new FileSystemWatcher {
                     Path = path,
